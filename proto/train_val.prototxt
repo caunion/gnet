@@ -1,4 +1,4 @@
-name: "GoogleNet"
+name: "GNet"
 layer {
   name: "data"
   type: "ImageData"
@@ -15,9 +15,8 @@ layer {
     mean_value: 123
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
+    source: "/media/daoyuan/hdd1/daoyuan/train.txt"
     batch_size: 32
-    backend: LMDB
   }
 }
 layer {
@@ -28,7 +27,7 @@ layer {
     phase: TRAIN
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
+    source: "/media/daoyuan/hdd1/daoyuan/train.h5"
     batch_size: 32
   }
 }
@@ -47,7 +46,7 @@ layer {
     mean_value: 123
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
+    source: "/media/daoyuan/hdd1/daoyuan/test.txt"
     batch_size: 50
   }
 }
@@ -59,7 +58,7 @@ layer {
     phase: TEST
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
+    source: "/media/daoyuan/hdd1/daoyuan/test.h5"
     batch_size: 50
   }
 }
