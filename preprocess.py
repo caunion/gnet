@@ -1,7 +1,10 @@
+#charset: UTF-8
 import numpy as np
 import h5py
 import os
 import glob
+import threading
+import multiprocessing
 from PIL import Image
 from os import path, system
 
@@ -67,16 +70,35 @@ def monkey_split_train_test(files, data, c = 1):
     train_files, train_data = files[I_train], data[I_train]
     return train_files, train_data, test_files, test_data
 
-def resize(folderpath, target=(326,244), target_folder ='resized'):
+def resize(folderpath, target=(326,244), target_folder ='resized', nthreads = 4):
+    os.makedirs(target_folder)
+    threads = []
     filelist = glob.glob(path.join(folderpath,'*.jpg'))
-    #target_folder = path.join(folderpath,'..',target_folder)
-    system('mkdir ' + target_folder)
-    for file in filelist:
-        im = Image.open(file)
-        out = im.resize(target)
-        out.save(path.join(target_folder, path.basename(file)))
+    filelist.sort()
+    nfiles = len(filelist)
+    ntasksize = nfiles/nthreads
+    def resize_list(filelist):
+        for file in filelist:
+            im = Image.open(file)
+            out = im.resize(target)
+            out.save(path.join(target_folder, path.basename(file)))
+    for i in range(nthreads):
+        left, right = i*ntasksize, min((i+1)*ntasksize+ nthreads, nfiles)
+        thread = multiprocessing.Process(
+                    target=resize_list,
+                    args=(filelist[left: right],)
+        )
+        threads.append(thread)
+        print "start thread {0} for image {1} to {2}".format(
+            i, left, right
+        )
+        thread.start()
 
+    for t in threads:
+        t.join()
+    print "finished resize"
 def main():
+
     files, data = readinfotxt()
     maxv, minv, norm_data = norm_by_dim(data, keep_dim=[0,1,2])
     train_files, train_data, test_files, test_data = monkey_split_train_test(files, norm_data, c= 10)
@@ -84,4 +106,9 @@ def main():
     label2lmdb(test_data, 'test.h5')
 
 if __name__ == "__main__":
-    main()
+    #main()
+    image_folder = "/media/daoyuan/My Passport/photo_data/"
+    resize(image_folder,
+           target=(326,244),
+           target_folder= (image_folder+ "../statium_image_data/"),
+           nthreads=10)
