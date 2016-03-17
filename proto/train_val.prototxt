@@ -3,7 +3,6 @@ layer {
   name: "data"
   type: "ImageData"
   top: "data"
-  top: "label"
   include {
     phase: TRAIN
   }
@@ -14,8 +13,8 @@ layer {
     mean_value: 117
     mean_value: 123
   }
-  data_param {
-    source: "/media/daoyuan/hdd1/daoyuan/train.txt"
+  image_data_param {
+    source: "/media/hdd3/gnet/data/train.txt"
     batch_size: 32
   }
 }
@@ -26,8 +25,8 @@ layer {
   include {
     phase: TRAIN
   }
-  data_param {
-    source: "/media/daoyuan/hdd1/daoyuan/train.h5"
+  hdf5_data_param {
+    source: "/media/hdd3/gnet/proto/label_train.txt"
     batch_size: 32
   }
 }
@@ -45,8 +44,8 @@ layer {
     mean_value: 117
     mean_value: 123
   }
-  data_param {
-    source: "/media/daoyuan/hdd1/daoyuan/test.txt"
+  image_data_param {
+    source: "/media/hdd3/gnet/data/test.txt"
     batch_size: 50
   }
 }
@@ -57,8 +56,8 @@ layer {
   include {
     phase: TEST
   }
-  data_param {
-    source: "/media/daoyuan/hdd1/daoyuan/test.h5"
+  hdf5_data_param {
+    source: "/media/hdd3/gnet/proto/label_test.txt"
     batch_size: 50
   }
 }
@@ -1693,7 +1692,7 @@ layer {
   name: "loss2/feat"
   type: "InnerProduct"
   bottom: "loss2/fc"
-  top: "loss1/feat"
+  top: "loss2/feat"
   param {
     lr_mult: 1
     decay_mult: 1

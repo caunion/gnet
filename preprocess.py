@@ -3,12 +3,21 @@ import numpy as np
 import h5py
 import os
 import glob
+import lmdb
+import caffe
 import threading
 import multiprocessing
 from PIL import Image
 from os import path, system
 
-def label2lmdb(data, filename = 'all_info.h5'):
+def label2lmdb(data, filename="all_info"):
+    env = lmdb.open(filename)
+    N = len(data)
+    with env.begin(write=True) as txn:
+        for i in range(N):
+            pass
+
+def label2hdf5(data, filename = 'all_info.h5'):
     rows, channels, height, width = len(data), 1, 1, 6
     total_size =  rows * channels * height * width
     reshape_mat = np.arange( total_size).astype('float32')
@@ -25,7 +34,7 @@ def files2txt(files, prefix = "", filename = "all_files.txt"):
                 path.join(
                     prefix,
                     path.basename(f)
-                ) + "\n"
+                ) + ".jpg 9999999\n"
             )
     return True
 
@@ -156,12 +165,12 @@ def main():
     label2lmdb(train_data, 'train.h5')
     files2txt(
         train_files,
-        prefix="/media/daoyuan/hdd1/daoyuan/stadim_image_crop/",
+        prefix="/media/hdd1/daoyuan/stadim_image_crop/",
         filename = "train.txt")
     label2lmdb(test_data, 'test.h5')
     files2txt(
         test_files,
-        prefix="/media/daoyuan/hdd1/daoyuan/stadim_image_crop/",
+        prefix="/media/hdd1/daoyuan/stadim_image_crop/",
         filename="test.txt")
 
     dataset_info = "dataset_info.dat"
