@@ -22,7 +22,10 @@ def files2txt(files, prefix = "", filename = "all_files.txt"):
     with open(filename, 'w') as fid:
         for f in files:
             fid.write(
-                path.join(prefix, path.basename(f)) + "\n"
+                path.join(
+                    prefix,
+                    path.basename(f)
+                ) + "\n"
             )
     return True
 
@@ -78,8 +81,47 @@ def monkey_split_train_test(files, data, c = 1):
     train_files, train_data = files[I_train], data[I_train]
     return train_files, train_data, test_files, test_data
 
+def crop(folderpath, target=(244,244), target_folder = "cropped", crop_center = True, nthreads=4):
+    if not path.exists(target_folder):
+        os.makedirs(target_folder)
+    threads = []
+    filelist = glob.glob(path.join(folderpath, "*.jpg"))
+    filelist.sort()
+    nfiles = len(filelist)
+    ntasksize = nfiles / nthreads
+    print "start {0} threads to crop {1} files".format(nthreads, nfiles)
+    def crop_list(imagelist):
+        for f in imagelist:
+            img = Image.open(f)
+            w, h = img.size[0], img.size[1]
+            w_o, h_o = target
+            out = img.crop(
+                ( (w - w_o) / 2,
+                  (h - h_o) / 2,
+                  (w + w_o) / 2 ,
+                  (h + h_o) / 2,
+                )
+            )
+            out.save( path.join(
+                target_folder,
+                path.basename(f)
+            ))
+    for i in range(nthreads):
+        left, right = i * ntasksize, min( (i+1) * ntasksize + nthreads, nfiles)
+        thread = multiprocessing.Process(
+            target=crop_list,
+            args=(filelist[left:right], )
+        )
+        threads += thread,
+        print "start thread {0} for image {1} to {2}".format(i, left, right)
+        thread.start()
+    for t in threads:
+        t.join()
+    print "finished crop, total {0} images".format(nfiles)
+
 def resize(folderpath, target=(326,244), target_folder ='resized', nthreads = 4):
-    os.makedirs(target_folder)
+    if not path.exists(folderpath):
+        os.makedirs(target_folder)
     threads = []
     filelist = glob.glob(path.join(folderpath,'*.jpg'))
     filelist.sort()
@@ -106,20 +148,30 @@ def resize(folderpath, target=(326,244), target_folder ='resized', nthreads = 4)
         t.join()
     print "finished resize"
 
-def main():
 
+def main():
     files, data = readinfotxt()
     maxv, minv, norm_data = norm_by_dim(data, keep_dim=[0,1,2])
     train_files, train_data, test_files, test_data = monkey_split_train_test(files, norm_data, c= 10)
     label2lmdb(train_data, 'train.h5')
-    files2txt(train_files, '', 'train.txt')
+    files2txt(
+        train_files,
+        prefix="/media/daoyuan/hdd1/daoyuan/stadim_image_crop/",
+        filename = "train.txt")
     label2lmdb(test_data, 'test.h5')
-    files2txt(test_files, '', 'test.txt')
+    files2txt(
+        test_files,
+        prefix="/media/daoyuan/hdd1/daoyuan/stadim_image_crop/",
+        filename="test.txt")
+
+    dataset_info = "dataset_info.dat"
+    with open(dataset_info, 'wb') as fid:
+        np.save(fid, (maxv, minv, train_files, test_files))
+
 
 if __name__ == "__main__":
     main()
-    # image_folder = "/media/daoyuan/My Passport/photo_data/"
-    # resize(image_folder,
-    #        target=(326,244),
-    #        target_folder= (image_folder+ "../statium_image_data/"),
-    #        nthreads=10)
+    # image_folder = "/media/xiaocan/statium_image_data/"
+    # crop(image_folder,
+    #        target=(244,244),
+    #        target_folder= ("/media/daoyuan/hdd1/daoyuan/stadim_image_crop"),
