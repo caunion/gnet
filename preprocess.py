@@ -18,6 +18,14 @@ def label2lmdb(data, filename = 'all_info.h5'):
         f['data'] = reshape_mat
     return True
 
+def files2txt(files, prefix = "", filename = "all_files.txt"):
+    with open(filename, 'w') as fid:
+        for f in files:
+            fid.write(
+                path.join(prefix, path.basename(f)) + "\n"
+            )
+    return True
+
 def norm_by_dim(data, keep_dim = []):
     rows = len(data)
     maxv = np.max(data, axis = 0)
@@ -29,7 +37,7 @@ def norm_by_dim(data, keep_dim = []):
     ret = (data - np.tile(minv, (rows, 1))) / np.tile(rangev, (rows, 1))
     return maxv, minv, ret
 
-def readinfotxt(filename = "info.txt.bak"):
+def readinfotxt(filename = "info.txt"):
     files =[]
     data = []
     with open(filename, 'r') as fid:
@@ -97,18 +105,21 @@ def resize(folderpath, target=(326,244), target_folder ='resized', nthreads = 4)
     for t in threads:
         t.join()
     print "finished resize"
+
 def main():
 
     files, data = readinfotxt()
     maxv, minv, norm_data = norm_by_dim(data, keep_dim=[0,1,2])
     train_files, train_data, test_files, test_data = monkey_split_train_test(files, norm_data, c= 10)
     label2lmdb(train_data, 'train.h5')
+    files2txt(train_files, '', 'train.txt')
     label2lmdb(test_data, 'test.h5')
+    files2txt(test_files, '', 'test.txt')
 
 if __name__ == "__main__":
-    #main()
-    image_folder = "/media/daoyuan/My Passport/photo_data/"
-    resize(image_folder,
-           target=(326,244),
-           target_folder= (image_folder+ "../statium_image_data/"),
-           nthreads=10)
+    main()
+    # image_folder = "/media/daoyuan/My Passport/photo_data/"
+    # resize(image_folder,
+    #        target=(326,244),
+    #        target_folder= (image_folder+ "../statium_image_data/"),
+    #        nthreads=10)
