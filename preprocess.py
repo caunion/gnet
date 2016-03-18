@@ -10,12 +10,43 @@ import multiprocessing
 from PIL import Image
 from os import path, system
 
-def label2lmdb(data, filename="all_info"):
-    env = lmdb.open(filename)
+
+def lmdb2label(dbname="all_db"):
+    env = lmdb.open(dbname, readonly=True)
+    data = []
+    files = []
+    with env.begin() as txn:
+        cursor = txn.cursor()
+        for key, value in cursor:
+            datum = caffe.proto.caffe_pb2.Datum()
+            datum.ParseFromString(value)
+            flat_x = np.fromstring(datum.data, dtype=np.float32)
+            x = flat_x.reshape((1,1,6))
+            y = datum.label
+            data += x,
+            files += key,
+    data = np.asarray(data)
+    files = np.asarray(files)
+    return files, data
+
+def label2lmdb(files, data, filename="all_info"):
+    map_size = data.nbytes * 10 + files.nbytes * 10
+    env = lmdb.open(filename, map_size = map_size)
     N = len(data)
     with env.begin(write=True) as txn:
         for i in range(N):
-            pass
+            item = data[i]
+            fname = files[i]
+            datum = caffe.proto.caffe_pb2.Datum()
+            datum.channels = 1
+            datum.height = 1
+            datum.width = 6
+            datum.data = item.tobytes()
+            datum.label = 88888
+            str_id = "Screenshot{:09}".format(int(fname[len('Screenshot'):]))
+            txn.put(str_id.encode('ascii'), datum.SerializeToString())
+
+    return True
 
 def label2hdf5(data, filename = 'all_info.h5'):
     rows, channels, height, width = len(data), 1, 1, 6
@@ -162,12 +193,12 @@ def main():
     files, data = readinfotxt()
     maxv, minv, norm_data = norm_by_dim(data, keep_dim=[0,1,2])
     train_files, train_data, test_files, test_data = monkey_split_train_test(files, norm_data, c= 10)
-    label2lmdb(train_data, 'train.h5')
+    label2lmdb(train_files, train_data, 'train')
     files2txt(
         train_files,
         prefix="/media/hdd1/daoyuan/stadim_image_crop/",
         filename = "train.txt")
-    label2lmdb(test_data, 'test.h5')
+    label2lmdb(test_files, test_data, 'test')
     files2txt(
         test_files,
         prefix="/media/hdd1/daoyuan/stadim_image_crop/",
@@ -177,9 +208,12 @@ def main():
     with open(dataset_info, 'wb') as fid:
         np.save(fid, (maxv, minv, train_files, test_files))
 
+    train_files, train_data = lmdb2label('train')
+    test_files, test_data = lmdb2label('test')
 
 if __name__ == "__main__":
     main()
+
     # image_folder = "/media/xiaocan/statium_image_data/"
     # crop(image_folder,
     #        target=(244,244),
