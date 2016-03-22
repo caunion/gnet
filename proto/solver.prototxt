@@ -1,10 +1,10 @@
-net: "models/bvlc_googlenet/train_val.prototxt"
+net: "train_val.prototxt"
 test_iter: 1000
 test_interval: 4000
 test_initialization: false
 display: 40
 average_loss: 40
-base_lr: 0.01
+base_lr: 0.000002
 lr_policy: "step"
 stepsize: 320000
 gamma: 0.96
@@ -12,5 +12,5 @@ max_iter: 10000000
 momentum: 0.9
 weight_decay: 0.0002
 snapshot: 40000
-snapshot_prefix: "models/bvlc_googlenet/bvlc_googlenet"
+snapshot_prefix: "models/"
 solver_mode: GPU

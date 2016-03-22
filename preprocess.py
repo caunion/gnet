@@ -1,5 +1,6 @@
-#charset: UTF-8
+#coding: UTF-8
 import numpy as np
+import shutil
 import h5py
 import os
 import glob
@@ -9,7 +10,6 @@ import threading
 import multiprocessing
 from PIL import Image
 from os import path, system
-
 
 def lmdb2label(dbname="all_db"):
     env = lmdb.open(dbname, readonly=True)
@@ -23,14 +23,14 @@ def lmdb2label(dbname="all_db"):
             flat_x = np.fromstring(datum.data, dtype=np.float32)
             x = flat_x.reshape((1,1,6))
             y = datum.label
-            data += x,
+            data += flat_x,
             files += key,
     data = np.asarray(data)
     files = np.asarray(files)
     return files, data
 
 def label2lmdb(files, data, filename="all_info"):
-    map_size = data.nbytes * 10 + files.nbytes * 10
+    map_size = data.nbytes * 10 + files.nbytes * 20
     env = lmdb.open(filename, map_size = map_size)
     N = len(data)
     with env.begin(write=True) as txn:
@@ -43,7 +43,8 @@ def label2lmdb(files, data, filename="all_info"):
             datum.width = 6
             datum.data = item.tobytes()
             datum.label = 88888
-            str_id = "Screenshot{:09}".format(int(fname[len('Screenshot'):]))
+            #str_id = "Screenshot{:08}".format(int(fname[len('Screenshot'):]))
+            str_id = "{:08}".format(i+1)
             txn.put(str_id.encode('ascii'), datum.SerializeToString())
 
     return True
@@ -61,12 +62,11 @@ def label2hdf5(data, filename = 'all_info.h5'):
 def files2txt(files, prefix = "", filename = "all_files.txt"):
     with open(filename, 'w') as fid:
         for f in files:
-            fid.write(
-                path.join(
-                    prefix,
-                    path.basename(f)
-                ) + ".jpg 9999999\n"
-            )
+            image_path = path.join(prefix, path.basename(f))
+            if not path.exists(image_path):
+                print "image {0} doesn't exists..".format(image_path)
+            else:
+                fid.write(image_path + " 9999999\n")
     return True
 
 def norm_by_dim(data, keep_dim = []):
@@ -80,13 +80,16 @@ def norm_by_dim(data, keep_dim = []):
     ret = (data - np.tile(minv, (rows, 1))) / np.tile(rangev, (rows, 1))
     return maxv, minv, ret
 
-def readinfotxt(filename = "info.txt"):
+def readinfotxt(filename = "info.txt", shuffle = False):
     files =[]
     data = []
     with open(filename, 'r') as fid:
-        while True:
-            line = fid.readline()
-            if line is None or line == "": break
+        lines = fid.readlines()
+        if shuffle:
+            np.random.shuffle(lines)
+        for line in lines:
+            if line is None or line == "":
+                continue
             fname, x, y, z, roll, pitch, yaw = line.split(' ')
             x = float(x)
             y = float(y)
@@ -96,6 +99,7 @@ def readinfotxt(filename = "info.txt"):
             pitch = float(pitch) * (2.0 * np.pi) / 360.0
             yaw = float(yaw) * (2.0 * np.pi) / 360.0
             data.append([x, y, z, roll, pitch, yaw])
+            fname = "Screenshot{0}".format(fname[len('Screenshot00'):])
             files.append(fname)
     data = np.asarray(data).astype('float32')
     files = np.asarray(files)
@@ -160,7 +164,7 @@ def crop(folderpath, target=(244,244), target_folder = "cropped", crop_center = 
     print "finished crop, total {0} images".format(nfiles)
 
 def resize(folderpath, target=(326,244), target_folder ='resized', nthreads = 4):
-    if not path.exists(folderpath):
+    if not path.exists(target_folder):
         os.makedirs(target_folder)
     threads = []
     filelist = glob.glob(path.join(folderpath,'*.jpg'))
@@ -189,31 +193,79 @@ def resize(folderpath, target=(326,244), target_folder ='resized', nthreads = 4)
     print "finished resize"
 
 
-def main():
-    files, data = readinfotxt()
-    maxv, minv, norm_data = norm_by_dim(data, keep_dim=[0,1,2])
-    train_files, train_data, test_files, test_data = monkey_split_train_test(files, norm_data, c= 10)
-    label2lmdb(train_files, train_data, 'train')
+def build_data_set(image_folder, shuffule, suffix="", keep_dim=[]):
+    #shutil.rmtree("data/")
+    save_folder = "data" + "_" + str(suffix)
+    if not path.exists(save_folder):
+        os.makedirs(save_folder)
+    # os.system('mv data data_' + suffix)
+    # os.makedirs("data")
+    files, data = readinfotxt(path.join(image_folder, "info.txt"), shuffle=shuffule)
+    maxv, minv, norm_data = norm_by_dim(data, keep_dim=keep_dim)
+    train_files, train_data, test_files, test_data = monkey_split_train_test(files, norm_data, c= 20)
+    label2lmdb(train_files, train_data, save_folder+'/train')
     files2txt(
         train_files,
-        prefix="/media/hdd1/daoyuan/stadim_image_crop/",
-        filename = "train.txt")
-    label2lmdb(test_files, test_data, 'test')
+        prefix=image_folder,
+        filename = save_folder+ "/train.txt")
+    label2lmdb(test_files, test_data, save_folder+'/test')
     files2txt(
         test_files,
-        prefix="/media/hdd1/daoyuan/stadim_image_crop/",
-        filename="test.txt")
+        prefix=image_folder,
+        filename=save_folder+"/test.txt")
 
-    dataset_info = "dataset_info.dat"
+    dataset_info = save_folder+"/dataset_info.dat"
     with open(dataset_info, 'wb') as fid:
         np.save(fid, (maxv, minv, train_files, test_files))
 
-    train_files, train_data = lmdb2label('train')
-    test_files, test_data = lmdb2label('test')
+    train_files_read, train_data_read = lmdb2label(save_folder+'/train')
+    test_files_read, test_data_read = lmdb2label(save_folder+'/test')
+
+    ntrain, ntest = len(train_data), len(test_data)
+    assert abs(sum(sum(train_data == train_data_read)) / 6 - ntrain * 1.0) < 1e-5
+    assert abs(sum(sum(test_data == test_data_read)) / 6 - ntest*1.0) < 1e-5
+
+def train_net(solver_path, param="", prefix=""):
+    folder=path.dirname(solver_path)
+    with open(solver_path, 'r') as fid:
+        lines = fid.readlines()
+        lines[-1] = lines[-1][0: lines[-1].rfind('/')] + "/" + prefix + "\""
+    with open(solver_path, 'w') as fid:
+        content = "".join(lines)
+        fid.write(content)
+    os.system("/home/daoyuan/caffe/build/tools/caffe train --solver={0} {1} -gpu 0"
+         .format(
+             solver_path, 
+             param
+         ))
+    pass
+def main():
+    caffe_net = "caffenet_proto/solver.prototxt"
+    caffe_net_model="--weights=caffenet_proto/bvlc_reference_caffenet.caffemodel"
+    caffe_net_solverstate="--snapshot=caffenet_proto/models/_iter_21028.solverstate"
+
+    ## shuffled dataset
+    train_net(caffe_net, caffe_net_solverstate, prefix="")
+    train_net(caffe_net, prefix="2")
+    train_net(caffe_net, param=caffe_net_model, prefix="3")
+
+    #build unshuffled dataset
+    build_data_set(False)
+    train_net(caffe_net, prefix="4")
+    train_net(caffe_net, param=caffe_net_model, prefix="5")
 
 if __name__ == "__main__":
-    main()
-
+    #main()
+    source_folder = "/media/daoyuan/My Passport/stadium_rand/"
+    target_folder ="/media/hdd3/stadium_rand_resize/"
+    #resize( source_folder, 
+    #        target=(244, 244), 
+    #        target_folder=target_folder,
+    #        nthreads=6
+    #        )
+    build_data_set(target_folder, True, suffix="rand_monk")
+     
+    
     # image_folder = "/media/xiaocan/statium_image_data/"
     # crop(image_folder,
     #        target=(244,244),

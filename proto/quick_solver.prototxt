@@ -4,9 +4,10 @@ test_interval: 4000
 test_initialization: false
 display: 40
 average_loss: 40
-base_lr: 0.01
-lr_policy: "poly"
-power: 0.5
+base_lr: 0.0000001
+lr_policy: "step"
+stepsize: 32000
+gamma: 0.96
 max_iter: 2400000
 momentum: 0.9
 weight_decay: 0.0002

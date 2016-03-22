@@ -20,14 +20,15 @@ layer {
 }
 layer {
   name: "label"
-  type: "HDF5Data"
+  type: "Data"
   top: "label"
   include {
     phase: TRAIN
   }
-  hdf5_data_param {
-    source: "/media/hdd3/gnet/proto/label_train.txt"
+  data_param {
+    source: "/media/hdd3/gnet/data/train"
     batch_size: 32
+    backend: LMDB
   }
 }
 layer {
@@ -51,14 +52,15 @@ layer {
 }
 layer {
   name: "label"
-  type: "HDF5Data"
+  type: "Data"
   top: "label"
   include {
     phase: TEST
   }
-  hdf5_data_param {
-    source: "/media/hdd3/gnet/proto/label_test.txt"
+  data_param {
+    source: "/media/hdd3/gnet/data/test"
     batch_size: 50
+    backend: LMDB
   }
 }
 layer {
@@ -921,10 +923,10 @@ layer {
   }
 }
 layer {
-  name: "loss1/feat"
+  name: "loss1/classifier"
   type: "InnerProduct"
   bottom: "loss1/fc"
-  top: "loss1/feat"
+  top: "loss1/classifier"
   param {
     lr_mult: 1
     decay_mult: 1
@@ -934,7 +936,7 @@ layer {
     decay_mult: 0
   }
   inner_product_param {
-    num_output: 2048
+    num_output: 1000
     weight_filler {
       type: "xavier"
     }
@@ -945,10 +947,10 @@ layer {
   }
 }
 layer {
-  name: "loss1/classifier"
+  name: "loss1/feat"
   type: "InnerProduct"
-  bottom: "loss1/feat"
-  top: "loss1/classifier"
+  bottom: "loss1/classifier"
+  top: "loss1/feat"
   param {
     lr_mult: 1
     decay_mult: 1
@@ -972,7 +974,7 @@ layer {
 layer {
   name: "loss1/loss"
   type: "EuclideanLoss"
-  bottom: "loss1/classifier"
+  bottom: "loss1/feat"
   bottom: "label"
   top: "loss1/loss1"
   loss_weight: 0.3
@@ -1689,10 +1691,10 @@ layer {
   }
 }
 layer {
-  name: "loss2/feat"
+  name: "loss2/classifier"
   type: "InnerProduct"
   bottom: "loss2/fc"
-  top: "loss2/feat"
+  top: "loss2/classifier"
   param {
     lr_mult: 1
     decay_mult: 1
@@ -1702,7 +1704,7 @@ layer {
     decay_mult: 0
   }
   inner_product_param {
-    num_output: 2048
+    num_output: 1000
     weight_filler {
       type: "xavier"
     }
@@ -1713,10 +1715,10 @@ layer {
   }
 }
 layer {
-  name: "loss2/classifier"
+  name: "loss2/feat"
   type: "InnerProduct"
-  bottom: "loss2/feat"
-  top: "loss2/classifier"
+  bottom: "loss2/classifier"
+  top: "loss2/feat"
   param {
     lr_mult: 1
     decay_mult: 1
@@ -1739,7 +1741,7 @@ layer {
 layer {
   name: "loss2/loss"
   type: "EuclideanLoss"
-  bottom: "loss2/classifier"
+  bottom: "loss2/feat"
   bottom: "label"
   top: "loss2/loss1"
   loss_weight: 0.3
@@ -2404,33 +2406,9 @@ layer {
   }
 }
 layer {
-  name: "loss3/feat"
-  type: "InnerProduct"
-  bottom: "pool5/7x7_s1"
-  top: "loss3/feat"
-  param {
-    lr_mult: 1
-    decay_mult: 1
-  }
-  param {
-    lr_mult: 2
-    decay_mult: 0
-  }
-  inner_product_param {
-    num_output: 2048
-    weight_filler {
-      type: "xavier"
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-layer {
   name: "loss3/classifier"
   type: "InnerProduct"
-  bottom: "loss3/feat"
+  bottom: "pool5/7x7_s1"
   top: "loss3/classifier"
   param {
     lr_mult: 1
@@ -2452,9 +2430,33 @@ layer {
   }
 }
 layer {
+  name: "loss3/feat"
+  type: "InnerProduct"
+  bottom: "loss3/classifier"
+  top: "loss3/feat"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 6
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
   name: "loss3/loss3"
   type: "EuclideanLoss"
-  bottom: "loss3/classifier"
+  bottom: "loss3/feat"
   bottom: "label"
   top: "loss3/loss3"
   loss_weight: 1

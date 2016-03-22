@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+*.caffemodel
+*.solverstate
+
 # C extensions
 *.so
 .idea/
