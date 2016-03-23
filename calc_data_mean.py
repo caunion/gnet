@@ -11,8 +11,9 @@ def PIL2mat(image):
 def single_img_mean(image_path):
     if not path.exists(image_path):
         raise Exception('image not exists')
-    im = Image.open(image_path,'r')
-    data = PIL2mat(im)
+    im = Image.open(image_path)
+    img = im.convert('RGB')
+    data = PIL2mat(img)
     ret = np.mean(data, axis=(0,1)) # R, G, B
     return ret
 
@@ -25,7 +26,7 @@ def image_mean(img_list):
     ret /= len(img_list)
     return ret
 def main():
-    folder = "/"
+    folder = "D:\\Personal\\Pictures\\beautifulPic\\*.jpg"
     img_list = glob.glob(folder)
     ret = image_mean(img_list)
     print "mean value: {0}".format(ret)
